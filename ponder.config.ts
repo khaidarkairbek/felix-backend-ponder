@@ -1,21 +1,22 @@
 import { createConfig } from "@ponder/core";
 import { http } from "viem";
 
-import { ExampleContractAbi } from "./abis/ExampleContractAbi";
+import { erc20 } from "./abis/erc20abi";
+import { tokenAddresses } from "./src/utils";
 
 export default createConfig({
   networks: {
-    mainnet: {
-      chainId: 1,
-      transport: http(process.env.PONDER_RPC_URL_1),
+    hl: {
+      chainId: 998,
+      transport: http(process.env.PONDER_RPC_URL_998),
     },
   },
   contracts: {
-    ExampleContract: {
-      network: "mainnet",
-      abi: ExampleContractAbi,
-      address: "0x0000000000000000000000000000000000000000",
-      startBlock: 1234567,
+    Token: {
+      network: "hl",
+      abi: erc20,
+      address: tokenAddresses,
+      startBlock: 10531953
     },
   },
 });
