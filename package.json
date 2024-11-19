@@ -7,18 +7,20 @@
     "dev": "ponder dev",
     "start": "ponder start",
     "codegen": "ponder codegen",
-    "lint": "eslint .",
+    "lint": "biome check .",
+    "lint:fix": "pnpm lint --write",
     "typecheck": "tsc"
   },
   "dependencies": {
-    "@ponder/core": "^0.7.0",
+    "@ponder/core": "0.7.6",
     "hono": "^4.5.0",
     "viem": "^2.21.3"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.8.1",
     "@types/node": "^20.9.0",
     "eslint": "^8.53.0",
-    "eslint-config-ponder": "^0.7.0",
+    "eslint-config-ponder": "0.7.6",
     "typescript": "^5.2.2"
   },
   "engines": {

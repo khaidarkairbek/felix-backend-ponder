@@ -1,70 +1,58 @@
 import { ponder } from "@/generated";
-import { Address } from "viem";
-import { erc20 } from "../abis/erc20abi";
-import { userTokens } from "../ponder.schema";
-import { tokenAddresses } from "./utils";
+import { userTokens, userTokensTimestamp } from "../ponder.schema";
+import { NULL_ADDRESS } from "./utils";
 
-type tokenInfo = {
-  address: Address, 
-  name: string, 
-  symbol: string, 
-  decimals: number
-};
+ponder.on("token:Transfer", async ({ event, context }) => {
+  const from = event.args.from.toLowerCase();
+  const to = event.args.to.toLowerCase();
+  const value = event.args.value;
+  const tokenAddress = event.log.address.toLowerCase();
 
-export const tokenInfoMap: Map<Address, tokenInfo> = new Map(); 
+  if (to !== tokenAddress && to !== NULL_ADDRESS) {
+    const liveToData = await context.db
+      .insert(userTokens)
+      .values({
+        userAddress: to,
+        tokenAddress,
+        balance: value,
+      })
+      .onConflictDoUpdate((row) => ({
+        balance: row.balance + value,
+      }));
 
-ponder.on("Token:Transfer", async ({event, context}) => {
-  const {from, to, value} = event.args; 
-  const tokenAddress = event.log.address; 
-
-  await context.db.insert(userTokens).values({
-    id: `${to}-${tokenAddress}`, 
-    userAddress: to,
-    tokenAddress,
-    balance: value, 
-  }).onConflictDoUpdate((row) => ({
-    balance: row.balance + value
-  })); 
-
-  await context.db.insert(userTokens).values({
-    id: `${from}-${tokenAddress}`,
-    userAddress: from,
-    tokenAddress,
-    balance: value, 
-  }).onConflictDoUpdate((row) => ({
-    balance: row.balance + value
-  }));
-
-  console.log(`from: ${from}, to: ${to}, value: ${value}`); 
-}); 
-
-ponder.on("Token:setup", async ({context}) => {
-  for (const address of tokenAddresses) {
-    const name = await context.client.readContract({
-      abi: erc20, 
-      address, 
-      functionName: "name"
-    }); 
-
-    const decimals = await context.client.readContract({
-      abi: erc20, 
-      address, 
-      functionName: "decimals"
-    }); 
-
-    const symbol = await context.client.readContract({
-      abi: erc20, 
-      address, 
-      functionName: "symbol"
-    }); 
-
-    console.log(`token: ${name} decimals: ${decimals} symbol: ${symbol}`); 
-
-    tokenInfoMap.set(address, {
-      address, 
-      name, 
-      symbol, 
-      decimals
-    }); 
+    await context.db
+      .insert(userTokensTimestamp)
+      .values({
+        userAddress: to,
+        tokenAddress,
+        balance: liveToData.balance,
+        timestamp: event.block.timestamp,
+      })
+      .onConflictDoUpdate({
+        balance: liveToData.balance,
+      });
   }
-})
+  
+  if (from !== tokenAddress && from !== NULL_ADDRESS) {
+    const liveFromData = await context.db
+      .update(userTokens, {
+        tokenAddress,
+        userAddress: from,
+      })
+      .set((row) => ({
+        balance: row.balance - value,
+      }));
+
+    await context.db
+      .insert(userTokensTimestamp)
+      .values({
+        userAddress: from,
+        tokenAddress,
+        balance: liveFromData.balance,
+        timestamp: event.block.timestamp,
+      })
+      .onConflictDoUpdate({
+        balance: liveFromData.balance,
+      });
+  }
+});
